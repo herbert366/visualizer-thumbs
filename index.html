@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>YouTube Home Preview</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-[#0f0f0f] text-white">
+    <div id="app" class="container mx-auto p-4">
+      <!-- Página 1: Envio de thumbnail e título -->
+      <div id="upload-page" class="mb-8">
+        <h1 class="text-2xl font-bold mb-4">Envie sua thumbnail e título</h1>
+        <form id="upload-form" class="space-y-4">
+          <div>
+            <label for="thumbnail" class="block mb-2">Thumbnail:</label>
+            <input
+              type="file"
+              id="thumbnail"
+              accept="image/*"
+              class="w-full p-2 border rounded"
+            />
+          </div>
+          <div>
+            <label for="title" class="block mb-2">Título:</label>
+            <input
+              type="text"
+              id="title"
+              class="w-full p-2 border rounded text-black"
+            />
+          </div>
+          <button
+            type="submit"
+            class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+          >
+            Enviar
+          </button>
+        </form>
+      </div>
+
+      <!-- Página 2: Preview -->
+      <div id="preview-page" class="hidden">
+        <h1 class="text-2xl font-bold mb-4">Preview da Home do YouTube</h1>
+        <div id="video-grid" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <!-- Os vídeos serão inseridos aqui dinamicamente -->
+        </div>
+      </div>
+    </div>
+
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script>
+      // Substitua YOUR_API_KEY pela sua chave real da API do YouTube
+      const API_KEY = 'YOUR_API_KEY'
+
+      gapi.load('client', initClient)
+
+      function initClient() {
+        gapi.client
+          .init({
+            apiKey: API_KEY,
+            discoveryDocs: [
+              'https://www.googleapis.com/discovery/v1/apis/youtube/v3/rest',
+            ],
+          })
+          .then(() => {
+            loadVideos()
+          })
+      }
+
+      function loadVideos() {
+        return gapi.client.youtube.videos
+          .list({
+            part: ['snippet,statistics'],
+            chart: 'mostPopular',
+            regionCode: 'BR',
+            maxResults: 12,
+          })
+          .then(function (response) {
+            const videos = response.result.items
+            videos.forEach(video => addVideoToGrid(video))
+          })
+          .catch(function (err) {
+            console.error('Execute error', err)
+          })
+      }
+
+      const uploadForm = document.getElementById('upload-form')
+      const uploadPage = document.getElementById('upload-page')
+      const previewPage = document.getElementById('preview-page')
+      const videoGrid = document.getElementById('video-grid')
+
+      uploadForm.addEventListener('submit', function (e) {
+        e.preventDefault()
+        const title = document.getElementById('title').value
+        const thumbnailFile = document.getElementById('thumbnail').files[0]
+
+        if (title && thumbnailFile) {
+          const reader = new FileReader()
+          reader.onload = function (event) {
+            const thumbnailUrl = event.target.result
+            addCustomVideoToGrid({ title, thumbnailUrl })
+            uploadPage.classList.add('hidden')
+            previewPage.classList.remove('hidden')
+          }
+          reader.readAsDataURL(thumbnailFile)
+        }
+      })
+
+      function addCustomVideoToGrid(video) {
+        const videoElement = document.createElement('div')
+        videoElement.className = 'bg-[#0f0f0f] rounded-lg overflow-hidden'
+        videoElement.innerHTML = `
+                <img src="${video.thumbnailUrl}" alt="Thumbnail" class="w-full h-48 object-cover">
+                <div class="p-2">
+                    <h3 class="font-bold text-sm">${video.title}</h3>
+                    <p class="text-gray-400 text-xs">Seu Canal</p>
+                    <p class="text-gray-400 text-xs">0 visualizações • agora</p>
+                </div>
+            `
+        videoGrid.prepend(videoElement)
+      }
+
+      function addVideoToGrid(video) {
+        const videoElement = document.createElement('div')
+        videoElement.className = 'bg-[#0f0f0f] rounded-lg overflow-hidden'
+        videoElement.innerHTML = `
+                <img src="${
+                  video.snippet.thumbnails.medium.url
+                }" alt="Thumbnail" class="w-full h-48 object-cover">
+                <div class="p-2">
+                    <h3 class="font-bold text-sm">${video.snippet.title}</h3>
+                    <p class="text-gray-400 text-xs">${
+                      video.snippet.channelTitle
+                    }</p>
+                    <p class="text-gray-400 text-xs">${formatViewCount(
+                      video.statistics.viewCount
+                    )} visualizações • ${formatPublishedAt(
+          video.snippet.publishedAt
+        )}</p>
+                </div>
+            `
+        videoGrid.appendChild(videoElement)
+      }
+
+      function formatViewCount(viewCount) {
+        if (viewCount >= 1000000) {
+          return (viewCount / 1000000).toFixed(1) + 'M'
+        } else if (viewCount >= 1000) {
+          return (viewCount / 1000).toFixed(1) + 'K'
+        } else {
+          return viewCount
+        }
+      }
+
+      function formatPublishedAt(publishedAt) {
+        const now = new Date()
+        const published = new Date(publishedAt)
+        const diffTime = Math.abs(now - published)
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+        if (diffDays === 1) {
+          return 'há 1 dia'
+        } else if (diffDays < 7) {
+          return `há ${diffDays} dias`
+        } else if (diffDays < 30) {
+          const weeks = Math.floor(diffDays / 7)
+          return `há ${weeks} ${weeks === 1 ? 'semana' : 'semanas'}`
+        } else {
+          const months = Math.floor(diffDays / 30)
+          return `há ${months} ${months === 1 ? 'mês' : 'meses'}`
+        }
+      }
+    </script>
+  </body>
+</html>
